@@ -38,23 +38,20 @@ public final class RxScreenCapture {
         DisplayMetrics metrics = new DisplayMetrics();
         WindowManager windowManager = (WindowManager) context.getSystemService(WINDOW_SERVICE);
         windowManager.getDefaultDisplay().getRealMetrics(metrics);
-        return capture(metrics.widthPixels, metrics.heightPixels, metrics.densityDpi);
+        return capture(0, 0, metrics.widthPixels, metrics.heightPixels);
     }
 
-    public Observable<Bitmap> capture(int width, int height) {
-        DisplayMetrics metrics = new DisplayMetrics();
-        WindowManager windowManager = (WindowManager) context.getSystemService(WINDOW_SERVICE);
-        windowManager.getDefaultDisplay().getRealMetrics(metrics);
-        return capture(width, height, metrics.densityDpi);
-    }
-
-    public Observable<Bitmap> capture(int width, int height, int density) {
+    public Observable<Bitmap> capture(int left, int top, int width, int height) {
         return Observable.create(emitter -> {
+            final DisplayMetrics metrics = new DisplayMetrics();
+            WindowManager windowManager = (WindowManager) context.getSystemService(WINDOW_SERVICE);
+            windowManager.getDefaultDisplay().getRealMetrics(metrics);
+
             final MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) context.getSystemService(MEDIA_PROJECTION_SERVICE);
             final MediaProjection mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, resultData);
-            final ImageReader imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2);
+            final ImageReader imageReader = ImageReader.newInstance(metrics.widthPixels, metrics.heightPixels, PixelFormat.RGBA_8888, 2);
             final VirtualDisplay virtualDisplay = mediaProjection.createVirtualDisplay(
-                    TAG, width, height, density,
+                    TAG, metrics.widthPixels, metrics.heightPixels, metrics.densityDpi,
                     DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY | DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
                     imageReader.getSurface(), null, null);
 
@@ -65,13 +62,14 @@ public final class RxScreenCapture {
                     ByteBuffer buffer = planes[0].getBuffer();
                     int pixelStride = planes[0].getPixelStride();
                     int rowStride = planes[0].getRowStride();
-                    int rowPadding = rowStride - pixelStride * width;
+                    int rowPadding = rowStride - pixelStride * metrics.widthPixels;
 
                     // create bitmap
-                    Bitmap bitmap = Bitmap.createBitmap(width + rowPadding / pixelStride, height, Bitmap.Config.ARGB_8888);
+                    Bitmap bitmap = Bitmap.createBitmap(metrics.widthPixels + rowPadding / pixelStride, metrics.heightPixels, Bitmap.Config.ARGB_8888);
                     bitmap.copyPixelsFromBuffer(buffer);
 
-                    emitter.onNext(bitmap);
+                    Bitmap cropped = Bitmap.createBitmap(bitmap, left, top, width, height);
+                    emitter.onNext(cropped);
 
                     bitmap.recycle();
                     image.close();
