@@ -18,7 +18,6 @@ import java.nio.ByteBuffer;
 
 import io.reactivex.Observable;
 import io.reactivex.ObservableSource;
-import io.reactivex.ObservableTransformer;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.functions.Function;
 import io.reactivex.subjects.PublishSubject;
@@ -43,6 +42,10 @@ public final class RxScreenCapture {
     public Observable<Bitmap> capture() {
         DisplayMetrics metrics = new DisplayMetrics();
         WindowManager windowManager = (WindowManager) context.getSystemService(WINDOW_SERVICE);
+        if (windowManager == null) {
+            return Observable.error(new NullPointerException());
+        }
+
         windowManager.getDefaultDisplay().getRealMetrics(metrics);
         return capture(new Rect(0, 0, metrics.widthPixels, metrics.heightPixels));
     }
